@@ -34,7 +34,7 @@ path(bedroom1, e, hallway).
 path(hallway, w, bedroom1).
 path(hallway, n, bedroom2).
 path(hallway, e, bedroom3) :-
-    at(bedroomkey, in_hand).
+    at(bedroomkey, in_bag).
 path(hallway, e, bedroom3) :-
     write('The door is locked... youll need a key to get in.'), nl, fail.
 path(hallway, ne, bathroom1).
@@ -358,6 +358,8 @@ instructions :-
 
 start :-
         retractall(char_met(_)),
+        retractall(at(_, in_bag)),
+        assert(marie_gave_key), retract(marie_gave_key),
         nl,
         writeln('Welcome to Murder Mystery!'),nl,
         writeln('Try entering a command to interact with the game.'),
@@ -636,7 +638,7 @@ dir_describe(garage) :-
 %===============================================================================
 
 
-:- dynamic talk_modifier/2, char_met/1, char_knows/2.
+:- dynamic talk_modifier/2, char_met/1, char_knows/2, marie_gave_key.
 :- discontiguous handle_response/2, char_knows/2, char_thing_info/2.
 
 
@@ -864,11 +866,16 @@ char_thing_info(homeowner, drugs) :-
 %marie
 char_knows(marie, ribbon).
 char_thing_info(marie, ribbon) :-
+    \+ marie_gave_key,
     writeln('Thats my sisters ribbon... do you need to ask her something?'),
     writeln('She likes to keep her room locked, so ill give you the key'),
-    assert(at(bedroomkey, in_bag)).
+    assert(at(bedroomkey, in_bag)),
+    assert(marie_gave_key).
+char_thing_info(marie, ribbon) :-
+    marie_gave_key,
+    writeln('That''s my sister''s ribbon.').
 char_knows(marie, wrench).
-char_thing_info(marie, drugs) :-
+char_thing_info(marie, wrench) :-
     writeln('Oh gosh, is that the murder weapon!!!').
 char_knows(marie, businesscard).
 char_thing_info(marie, businesscard) :-
