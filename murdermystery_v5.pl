@@ -11,8 +11,6 @@
 %===============================================================================
 %===============================================================================
 
-%madi is inept at git wew
-%vaibhav is inept at prolog wew
 
 % picture of game layout: https://imgur.com/a/vGrL4
 
@@ -87,7 +85,7 @@ person(assistant).
 person(homeowner).
 person(marie).
 person(allison).
-person(securitygaurd).
+person(guard).
 person(gardener).
 
 
@@ -110,7 +108,7 @@ at(maid, kitchen).
 at(assistant, livingroom).
 at(gardener, garage).
 at(marie, bedroom1).
-at(securitygaurd, hallway).
+at(guard, hallway).
 at(homeowner, bedroom2).
 at(allison, basement).
 
@@ -286,7 +284,7 @@ examine(drugs):-
 
 examine(ransomnote):-
     at(ransomnote,in_bag),
-    write('Ill input what the actual ransom note says later because right now it looks like shit and im lazy lol'), nl, fail.
+    write('It reads:  I have your daughter.  Send 10MIL to this bank account if you want to see her again.'), nl, fail.
 
 examine(X) :-
     object(X), \+ at(X, in_bag),
@@ -320,9 +318,9 @@ examine(allison):-
     at(allison,Y),
     write('Its allison!  The missing younger daughter of the house has been found!'), nl, fail.
 
-examine(securitygaurd):-
+examine(guard):-
     i_am_at(Y),
-    at(securitygaurd,Y),
+    at(guard,Y),
     write('A bulky, simple looking guy.  Hes watching you carefully... dont do anything stupid....'), nl, fail.
 
 examine(gardener):-
@@ -335,7 +333,6 @@ examine(X) :-
     \+ person(X),
     \+ object(X),
     write('You cannot examine that, please try a different command').
-/* TODO: ADD CASE IF YOURE TRYING TO EXAMINE SOMETHING THAT ISNT A PERSON, OBJECT OR DEFINED*/
 
 
 instructions :-
@@ -353,13 +350,37 @@ instructions :-
         writeln('Type <bye> to leave any conversation'),nl,
         writeln('Type <help> to view these commands again.').
 
+introduction :-
+        writeln('You have been caught in a storm.  The road flooded and now your car has broken down.  Your phone receives no service.'),
+        writeln('After following the road for quite some time, you have come across the first house in a long while.'),
+        writeln('Completely soaked, you walk down the driveway in hopes the owners will be kind enough to let you call for a tow.'),
+        writeln('You notice the garage door is open.  While it would be more tactful to knock on the front door,'),
+        writeln('you cant help but think there must be someone inside it if the door has been left open on such a miserable day.'),
+        writeln('...'),
+        writeln('This is not the sight you expected.'),
+        writeln('In front of you, an eldery man is collapsed next to an SUV.'),
+        writeln('You get on the ground to see if you can awake the man, but your efforts are in vain.'),
+        writeln('The man in front of you is dead.'),
+        writeln('Before you can process the gravity of the situation you are in, you hear a shrill scream.'),
+        writeln('In front of you, a maid looks at you with a horrified expression.'),
+        writeln('The police are quickly called.  They will arrive at the house once the storm clears...'),
+        writeln('You must prove your innocence before then!  Good luck!').
+
+
+
+
 
 /* This rule prints out instructions and tells where you are. */
 
 start :-
+        introduction,
         retractall(char_met(_)),
         retractall(at(_, in_bag)),
         assert(marie_gave_key), retract(marie_gave_key),
+        assert(guard_asleep), retract(guard_asleep),
+        assert(given_drugs), retract(given_drugs),
+        assert(key_flag), retract(key_flag),
+        assert(homeowner_gave_key), retract(homeowner_gave_key),
         nl,
         writeln('Welcome to Murder Mystery!'),nl,
         writeln('Try entering a command to interact with the game.'),
@@ -548,10 +569,11 @@ dir_describe(bedroom2) :-
     write('You are in the homeowner''s room.'), nl,
     write('The hallway is to the south.'), nl.
 
-describe(bedroom2) :-
+describe(bedroom3) :-
     dir_describe(bedroom3).
 dir_describe(bedroom3) :- 
     write('You are in allison''s room.'), nl,
+    write('...Allison seems to be missing. Odd.'), nl,
     write('The hallway is to the west.'), nl.
 
 describe(bathroom1) :-
@@ -638,7 +660,7 @@ dir_describe(garage) :-
 %===============================================================================
 
 
-:- dynamic talk_modifier/2, char_met/1, char_knows/2, marie_gave_key.
+:- dynamic talk_modifier/2, char_met/1, char_knows/2, marie_gave_key, guard_asleep, given_drugs, key_flag, homeowner_gave_key.
 :- discontiguous handle_response/2, char_knows/2, char_thing_info/2.
 
 
@@ -647,6 +669,11 @@ dir_describe(garage) :-
 % attempting to talk to dead gardener
 talk(gardener) :-
     write('Corpses make for poor conversation.'), nl.
+
+talk(guard) :-
+    guard_asleep,
+    write('You could try to talk to him, but hes too fast asleep to hear you.'), nl.
+
 
 % talking to a character for the first time
 talk(X) :-
@@ -789,11 +816,23 @@ handle_response([explain, Thing | _], X) :-
     write('I don''t know what that is.'),nl,
     talk(X).
 
+% case where player asks about an object the npc does know, and is in bag
+handle_response([explain, Object | _], X) :-
+    at(Object, in_bag),
+    char_knows(X, Object),
+    char_thing_info(X, Object),
+    talk(X).
 
-% case where player asks about something the person does know
-handle_response([explain, Thing | _], X) :-
-    char_knows(X, Thing),
-    char_thing_info(X, Thing),
+% case where player asks about an object the npc does know, but NOT in bag
+handle_response([explain, Object | _], X) :-
+    \+ at(Object, in_bag),
+    writeln('You don''t have that item with you.'),
+    talk(X).
+
+% case where player asks about another person the npc does know
+handle_response([explain, Person | _], X) :-
+    char_knows(X, Person),
+    char_thing_info(X, Person),
     talk(X).
 
 
@@ -808,7 +847,6 @@ handle_response([explain, Thing | _], X) :-
 /* first, initialize that the char knows about the object or person */
 /* then create the actual response statement */
 
-:- dynamic conversation_had1.
 
 %maid 
 char_knows(maid, drugs). 
@@ -819,13 +857,21 @@ char_thing_info(maid, wrench) :-
     writeln('Get that awful thing away from me!').
 char_knows(maid, chickendinner). 
 char_thing_info(maid, chickendinner) :-
+    \+ guard_asleep,
     writeln('Yes, I cooked that for Allison... why are you carrying it around exactly?'). 
 char_thing_info(maid, chickendinner) :-
-    writeln('W-what?  The food was drugged??? I swear, it was not my doing… I dont know how this could have happened!'),
-    writeln('Unless… oh no….  I usually put chopped up multivitamins in Allisons meals… shes a picky eater unfortunately...'),
+    guard_asleep, \+ given_drugs,
+    writeln('W-what?  The food was drugged??? I swear, it was not my doing... I dont know how this could have happened!'),
+    writeln('Unless... oh no...  I usually put chopped up multivitamins in Allisons meals… shes a picky eater unfortunately...'),
     writeln('Perhaps theres something wrong with them?  I would never try to hurt one of the girls I swear!'),
     writeln('Here, you can have them.'),
-    assert(at(drugs, in_bag)).
+    assert(at(drugs, in_bag)),
+    assert(given_drugs).
+char_thing_info(maid, chickendinner) :-
+    guard_asleep, given_drugs,
+    writeln('W-what?  The food was drugged??? I swear, it was not my doing… I dont know how this could have happened!'),
+    writeln('Unless… oh no….  I usually put chopped up multivitamins in Allisons meals… shes a picky eater unfortunately...'),
+    writeln('Perhaps theres something wrong with them?  I would never try to hurt one of the girls I swear!').
 
 %assistant
 char_knows(assistant, wrench). 
@@ -836,15 +882,17 @@ char_thing_info(assistant, businesscard) :-
     writeln('Hmm… what is that?  My business card?  Where did you get that?'),
     writeln('...'),
     writeln('Oh, yes, I tutor her every so often.  I must have given her it at some point. ').
-char_knows(assistant, businesscard). 
+char_knows(assistant, ransomnote). 
 char_thing_info(assistant, ransomnote) :-
     writeln('!!!!'),
     writeln('How did you find that!!!'),
-    writeln('There’s no point admitting it anymore… I tried to kidnap her....'),
+    writeln('There’s no point hiding it anymore... I tried to kidnap her....'),
     writeln('The gardener caught me as I tried to load her into my car....'),
     writeln('I acted brashly.  In both cases.  I just wanted enough ransom money to get away from'),
     writeln('this god-awful job.  Ill turn myself in.'),
-    writeln('YOU PROVED YOURSELF INNOCENT, WINNING THE GAME.').
+    writeln('YOU PROVED YOURSELF INNOCENT, WINNING THE GAME.'),
+    writeln('Type `halt` to end the game.').
+
     %halt here
 
 
@@ -855,13 +903,26 @@ char_thing_info(homeowner, wrench) :-
     writeln('The murder weapon, I presume?  An awful thing, really.').
 char_knows(homeowner, businesscard). 
 char_thing_info(homeowner, businesscard) :-
+    \+ key_flag,
     writeln('Oh, thats my assistants card.  Kind of ugly looking, dont you think?').
+char_thing_info(homeowner, businesscard) :-
+    key_flag, \+ homeowner_gave_key,
+    writeln('My assistant...?  He works out of the basement... perhaps you will find something there.'),
+    writeln('Take the basementkey.'),
+    assert(at(basementkey, in_bag)),
+    assert(homeowner_gave_key).
+char_thing_info(homeowner, businesscard) :-
+    key_flag, homeowner_gave_key,
+    writeln('My assistant...?  He works out of the basement... perhaps you will find something there.').
 char_knows(homeowner, ransomnote). 
 char_thing_info(homeowner, ransomnote) :-
     writeln('What in the world??? Show the assistant this.  Make him confess his crimes.').
 char_knows(homeowner, drugs). 
 char_thing_info(homeowner, drugs) :-
-    writeln('Oh, thats my assistants card.  Kind of ugly looking, dont you think?').
+    writeln('Allison is missing?  And you suspect she may have been drugged and kidnapped???'),
+    writeln('This is... unbelievable!  Do you have any idea who is behind this?'),
+    assert(key_flag).
+
 
 %marie
 char_knows(marie, ribbon).
@@ -895,14 +956,15 @@ char_knows(allison, chickendinner).
 char_thing_info(allison, chickendinner) :-
     writeln('Thats my dinner... I think I fell asleep after eating a bit of it....').
 
-%securitygaurd
-char_knows(securitygaurd, wrench).
-char_thing_info(securitygaurd, wrench) :-
+%guard
+char_knows(guard, wrench).
+char_thing_info(guard, wrench) :-
     writeln('Agh, the murder weapon.  Real nasty').
-char_knows(securitygaurd, chickendinner).
-char_thing_info(securitygaurd, chickendinner) :-
+char_knows(guard, chickendinner).
+char_thing_info(guard, chickendinner) :-
     writeln('Nice, I love chicken, give me a piece!'),
-    writeln('*The guard passes out in front of you*').
+    writeln('*The guard passes out in front of you*'),
+    assert(guard_asleep).
 
 
 %%% template for knowing about person
@@ -923,8 +985,8 @@ char_thing_info(maid, marie) :-
 char_knows(maid, allison).
 char_thing_info(maid, allison) :-
     writeln('Allison is a nice girl, but kind of reclusive... and a picky eater... makes my job difficult.').
-char_knows(maid, securitygaurd).
-char_thing_info(maid, securitygaurd) :-
+char_knows(maid, guard).
+char_thing_info(maid, guard) :-
     writeln('Hes kind of an oaf... does his job well enough though....').
 
 %assistant
@@ -943,8 +1005,8 @@ char_thing_info(assistant, marie) :-
 char_knows(assistant, allison).
 char_thing_info(assistant, allison) :-
     writeln('A little bit of a recluse, that one... but very sweet, like her sister.').
-char_knows(assistant, securitygaurd).
-char_thing_info(assistant, securitygaurd) :-
+char_knows(assistant, guard).
+char_thing_info(assistant, guard) :-
     writeln('A bit of a brute, that one....').
 
 %homeowner
@@ -963,8 +1025,8 @@ char_thing_info(homeowner, marie) :-
 char_knows(homeowner, allison).
 char_thing_info(homeowner, allison) :-
     writeln('My younger daughter... very inward, that one.').
-char_knows(homeowner, securitygaurd).
-char_thing_info(homeowner, securitygaurd) :-
+char_knows(homeowner, guard).
+char_thing_info(homeowner, guard) :-
     writeln('Probably going to be fired... a guard who allows a murder to happen... really.....').
 
 %marie
@@ -983,8 +1045,8 @@ char_thing_info(marie, homeowner) :-
 char_knows(marie, allison).
 char_thing_info(marie, allison) :-
     writeln('My little sister?  Shes kind of shy, but really sweet.').
-char_knows(marie, securitygaurd).
-char_thing_info(marie, securitygaurd) :-
+char_knows(marie, guard).
+char_thing_info(marie, guard) :-
     writeln('Hahah hes such a funny guy.').
 
 %allison
@@ -1003,28 +1065,28 @@ char_thing_info(allison, homeowner) :-
 char_knows(allison, marie).
 char_thing_info(allison, marie) :-
     writeln('Im kind of tired... can you stop asking me about people').
-char_knows(allison, securitygaurd).
-char_thing_info(allison, securitygaurd) :-
+char_knows(allison, guard).
+char_thing_info(allison, guard) :-
     writeln('Im kind of tired... can you stop asking me about people').
 
-%securitygaurd
-char_knows(securitygaurd, gardener).
-char_thing_info(securitygaurd, gardener) :-
+%guard
+char_knows(guard, gardener).
+char_thing_info(guard, gardener) :-
     writeln('Poor guy.  Nice fellow. Laughed at my jokes.').
-char_knows(securitygaurd, maid).
-char_thing_info(securitygaurd, maid) :-
+char_knows(guard, maid).
+char_thing_info(guard, maid) :-
     writeln('A bit snappy, but her chicken is to die for!').
-char_knows(securitygaurd, assistant).
-char_thing_info(securitygaurd, assistant) :-
+char_knows(guard, assistant).
+char_thing_info(guard, assistant) :-
     writeln('Stuck up guy.  Hes probably just overworked though, hahahahaha.').
-char_knows(securitygaurd, homeowner).
-char_thing_info(securitygaurd, homeowner) :-
+char_knows(guard, homeowner).
+char_thing_info(guard, homeowner) :-
     writeln('Moody guy.  Could pay better.').
-char_knows(securitygaurd, marie).
-char_thing_info(securitygaurd, marie) :-
+char_knows(guard, marie).
+char_thing_info(guard, marie) :-
     writeln('Marie is a sweetheart!  A lot easier to talk to then her sister.').
-char_knows(securitygaurd, allison).
-char_thing_info(securitygaurd, allison) :-
+char_knows(guard, allison).
+char_thing_info(guard, allison) :-
     writeln('Quiet girl.  She seems nice though.').
 
 
@@ -1062,48 +1124,45 @@ handle_response(_, X) :-
 /* Intro speeches for each character */
 
 char_intro_speech(maid) :-
-    write('intro speech - maid'), nl.
+    write('Oh, its you... You know, you said you didnt murder him but im not so sure....'), nl.
 char_intro_speech(assistant) :-
-    write('intro speech - assistant'), nl.
+    write('Ah, the supposed murderer.  Good luck proving yourself innocent.'), nl.
 char_intro_speech(homeowner) :-
-    write('intro speech - homeowner'), nl.
+    write('Make yourself comfortable... the police should be here for questioning as soon as the storm clears.'), nl.
 char_intro_speech(marie) :-
-    write('intro speech - marie'), nl.
+    write('Oh hello, and who might you be?'), nl.
 char_intro_speech(allison) :-
-    write('intro speech - allison'), nl.
-char_intro_speech(securitygaurd) :-
-    write('intro speech - securitygaurd'), nl.
+    write('Where am I... whats going on...  who are you?'), nl.
+char_intro_speech(guard) :-
+    write('Oh, its the troublemaker... '), nl.
 
 /* Farewell speeches for each character */
 
 char_bye_speech(maid) :-
-    write('bye speech - maid'), nl.
+    write('Oh, thats all?'), nl.
 char_bye_speech(assistant) :-
-    write('bye speech - assistant'), nl.
+    write('Farewell.'), nl.
 char_bye_speech(homeowner) :-
-    write('bye speech - homeowner'), nl.
+    write('Very well.'), nl.
 char_bye_speech(marie) :-
-    write('bye speech - marie'), nl.
+    write('Until next time!'), nl.
 char_bye_speech(allison) :-
-    write('bye speech - allison'), nl.
-char_bye_speech(securitygaurd) :-
-    write('bye speech - securitygaurd'), nl.
+    write('...bye'), nl.
+char_bye_speech(guard) :-
+    write('Goodbye!'), nl.
 
 /* Name and basic info speech for each character */
 
 char_name_info(maid) :-
-    write('name and basic info - maid'), nl.
+    write('Oh me?  I do the cooking and cleaning around here.'), nl.
 char_name_info(assistant) :-
-    write('name and basic info - assistant'), nl.
+    write('Me?  I handle extra business manners for my boss` company.'), nl.
 char_name_info(homeowner) :-
-    write('name and basic info - homeowner'), nl.
+    write('This is my estate.  I live here with my two daughters and live-in help.'), nl.
 char_name_info(marie) :-
-    write('name and basic info - marie'), nl.
+    write('My name is marie.  I am the older daughter of the household.  Its nice to meet you.'), nl.
 char_name_info(allison) :-
-    write('name and basic info - allison'), nl.
-char_name_info(securitygaurd) :-
-    write('name and basic info - securitygaurd'), nl.
-
-
-
-
+    write('...my name is allison....'), nl.
+char_name_info(guard) :-
+    write('Oh, me?  Im in charge of the security around here.... We`ll see for how long after the gardener though!'), nl,
+    write('...too soon?'), nl.
